@@ -3,6 +3,11 @@ import { useIngredients } from './IngredientsContext';
 
 const CoffeesContext = createContext();
 
+const channel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('craft-coffee-sync')
+    : null;
+
 export const useCoffees = () => {
   const context = useContext(CoffeesContext);
   if (!context) {
@@ -30,7 +35,26 @@ export const CoffeesProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('coffees', JSON.stringify(coffees));
+    if (channel) {
+      channel.postMessage({
+        type: 'COFFEES_UPDATE',
+        data: coffees
+      });
+    }
   }, [coffees]);
+
+  useEffect(() => {
+    if (!channel) return;
+
+    const handleMessage = (event) => {
+      if (event.data.type === 'COFFEES_UPDATE') {
+        setCoffees(event.data.data);
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+    return () => channel.removeEventListener('message', handleMessage);
+  }, []);
 
   const calculateTotalPrice = (ingredientIds) => {
     const ingredientsSum = ingredientIds.reduce((sum, id) => {

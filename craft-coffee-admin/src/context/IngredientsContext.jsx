@@ -2,6 +2,12 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const IngredientsContext = createContext();
 
+// Broadcast Channel ყველა ტაბისთვის
+const channel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('craft-coffee-sync')
+    : null;
+
 export const useIngredients = () => {
   const context = useContext(IngredientsContext);
   if (!context) {
@@ -25,9 +31,31 @@ export const IngredientsProvider = ({ children }) => {
     return 1;
   });
 
+  // localStorage-ში შენახვა
   useEffect(() => {
     localStorage.setItem('ingredients', JSON.stringify(ingredients));
+    // ყველა ტაბს აცნობებს ცვლილებების შესახებ
+    if (channel) {
+      channel.postMessage({
+        type: 'INGREDIENTS_UPDATE',
+        data: ingredients
+      });
+    }
   }, [ingredients]);
+
+  // სხვა ტაბებიდან ცვლილებების მოსმენა
+  useEffect(() => {
+    if (!channel) return;
+
+    const handleMessage = (event) => {
+      if (event.data.type === 'INGREDIENTS_UPDATE') {
+        setIngredients(event.data.data);
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+    return () => channel.removeEventListener('message', handleMessage);
+  }, []);
 
   const addIngredient = (ingredient) => {
     const newIngredient = {

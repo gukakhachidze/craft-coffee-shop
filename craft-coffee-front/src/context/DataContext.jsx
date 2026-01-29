@@ -2,6 +2,11 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const DataContext = createContext();
 
+const channel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('craft-coffee-sync')
+    : null;
+
 export const useData = () => {
   const context = useContext(DataContext);
   if (!context) {
@@ -21,29 +26,49 @@ export const DataProvider = ({ children }) => {
     return stored ? JSON.parse(stored) : [];
   });
 
+  // სხვა ტაბებიდან ცვლილებების მოსმენა
   useEffect(() => {
-    const handleStorageChange = () => {
+    if (!channel) return;
+
+    const handleMessage = (event) => {
+      if (event.data.type === 'INGREDIENTS_UPDATE') {
+        setIngredients(event.data.data);
+        localStorage.setItem('ingredients', JSON.stringify(event.data.data));
+      } else if (event.data.type === 'COFFEES_UPDATE') {
+        setCoffees(event.data.data);
+        localStorage.setItem('coffees', JSON.stringify(event.data.data));
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
+  // localStorage-დან პერიოდულად წაკითხვა (backup)
+  useEffect(() => {
+    const syncFromStorage = () => {
       const storedIngredients = localStorage.getItem('ingredients');
       const storedCoffees = localStorage.getItem('coffees');
 
       if (storedIngredients) {
-        setIngredients(JSON.parse(storedIngredients));
+        const parsed = JSON.parse(storedIngredients);
+        setIngredients((prev) =>
+          JSON.stringify(prev) !== storedIngredients ? parsed : prev
+        );
       }
       if (storedCoffees) {
-        setCoffees(JSON.parse(storedCoffees));
+        const parsed = JSON.parse(storedCoffees);
+        setCoffees((prev) =>
+          JSON.stringify(prev) !== storedCoffees ? parsed : prev
+        );
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-
-    const interval = setInterval(() => {
-      handleStorageChange();
-    }, 1000);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
+    const interval = setInterval(syncFromStorage, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   const getIngredientById = (id) => {
