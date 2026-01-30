@@ -6,16 +6,19 @@ const Container = styled.div`
   width: 100%;
   min-height: calc(100vh - 100px);
   background: linear-gradient(135deg, #f8f6f4 0%, #e8e5e1 100%);
+  padding-top: 180px;
 `;
 
 const Hero = styled.div`
   width: 100%;
   background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
   padding: 100px 48px;
+  margin-top: 0;
   text-align: center;
   color: white;
   position: relative;
   overflow: hidden;
+  z-index: 1;
 
   &::before {
     content: '🌿';
@@ -26,6 +29,7 @@ const Hero = styled.div`
     left: -80px;
     transform: rotate(15deg);
     animation: sway 6s ease-in-out infinite;
+    z-index: 0;
   }
 
   @keyframes sway {
@@ -47,7 +51,7 @@ const HeroContent = styled.div`
   max-width: 1000px;
   margin: 0 auto;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 `;
 
 const Title = styled.h1`

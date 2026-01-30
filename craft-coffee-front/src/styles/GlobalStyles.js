@@ -20,6 +20,7 @@ export const GlobalStyles = createGlobalStyle`
     color: #333;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    padding-top: 0;
   }
 
   #root {

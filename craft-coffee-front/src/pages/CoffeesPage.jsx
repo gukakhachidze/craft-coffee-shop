@@ -6,6 +6,7 @@ const Container = styled.div`
   width: 100%;
   min-height: calc(100vh - 100px);
   background: linear-gradient(135deg, #f8f6f4 0%, #e8e5e1 100%);
+  padding-top: 180px;
 `;
 
 const Hero = styled.div`

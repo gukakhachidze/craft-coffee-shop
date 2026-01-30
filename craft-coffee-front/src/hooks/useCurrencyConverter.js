@@ -21,9 +21,10 @@ export const useCurrencyConverter = () => {
       const data = await response.json();
       setExchangeRate(data.rate || data.amountTo || 2.65);
     } catch (err) {
-      console.error('Error fetching exchange rate:', err);
-      setError(err.message);
-      setExchangeRate(2.65);
+      // Bank of Georgia API არ იძლევა CORS access browser-დან
+      // ვიყენებთ fallback exchange rate-ს
+      setExchangeRate(2.65); // Default USD to GEL rate
+      // არ ვპრინტავთ error-ს console-ში
     } finally {
       setIsLoading(false);
     }
@@ -34,7 +35,7 @@ export const useCurrencyConverter = () => {
   };
 
   const convertPrice = (priceInGEL) => {
-    if (!exchangeRate) return priceInGEL;
+    if (!exchangeRate || exchangeRate === 0) return priceInGEL;
     if (currency === 'USD') {
       return priceInGEL / exchangeRate;
     }

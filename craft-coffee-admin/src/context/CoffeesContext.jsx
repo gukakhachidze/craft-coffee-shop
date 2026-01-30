@@ -2,11 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useIngredients } from './IngredientsContext';
 
 const CoffeesContext = createContext();
-
-const channel =
-  typeof BroadcastChannel !== 'undefined'
-    ? new BroadcastChannel('craft-coffee-sync')
-    : null;
+const API_URL = 'http://localhost:3001/coffees';
 
 export const useCoffees = () => {
   const context = useContext(CoffeesContext);
@@ -18,42 +14,28 @@ export const useCoffees = () => {
 
 export const CoffeesProvider = ({ children }) => {
   const { ingredients } = useIngredients();
+  const [coffees, setCoffees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [coffees, setCoffees] = useState(() => {
-    const stored = localStorage.getItem('coffees');
-    return stored ? JSON.parse(stored) : [];
-  });
-
-  const [nextId, setNextId] = useState(() => {
-    const stored = localStorage.getItem('coffees');
-    if (stored) {
-      const data = JSON.parse(stored);
-      return data.length > 0 ? Math.max(...data.map((c) => c.id)) + 1 : 1;
+  const fetchCoffees = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error('Failed to fetch coffees');
+      const data = await response.json();
+      setCoffees(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching coffees:', err);
+    } finally {
+      setLoading(false);
     }
-    return 1;
-  });
+  };
 
   useEffect(() => {
-    localStorage.setItem('coffees', JSON.stringify(coffees));
-    if (channel) {
-      channel.postMessage({
-        type: 'COFFEES_UPDATE',
-        data: coffees
-      });
-    }
-  }, [coffees]);
-
-  useEffect(() => {
-    if (!channel) return;
-
-    const handleMessage = (event) => {
-      if (event.data.type === 'COFFEES_UPDATE') {
-        setCoffees(event.data.data);
-      }
-    };
-
-    channel.addEventListener('message', handleMessage);
-    return () => channel.removeEventListener('message', handleMessage);
+    fetchCoffees();
   }, []);
 
   const calculateTotalPrice = (ingredientIds) => {
@@ -64,57 +46,109 @@ export const CoffeesProvider = ({ children }) => {
     return 2 + ingredientsSum;
   };
 
-  const addCoffee = (coffee) => {
-    const totalPrice = calculateTotalPrice(coffee.ingredients);
-    const newCoffee = {
-      ...coffee,
-      id: nextId,
-      totalPrice
-    };
-    setCoffees((prev) => [...prev, newCoffee]);
-    setNextId((prev) => prev + 1);
-    return newCoffee;
+  const addCoffee = async (coffee) => {
+    try {
+      const totalPrice = calculateTotalPrice(coffee.ingredients);
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...coffee,
+          totalPrice
+        })
+      });
+      if (!response.ok) throw new Error('Failed to add coffee');
+      const newCoffee = await response.json();
+      setCoffees((prev) => [...prev, newCoffee]);
+      return newCoffee;
+    } catch (err) {
+      console.error('Error adding coffee:', err);
+      alert('შეცდომა: ყავის დამატება ვერ მოხერხდა');
+      throw err;
+    }
   };
 
-  const updateCoffee = (id, updates) => {
-    setCoffees((prev) =>
-      prev.map((coffee) => {
-        if (coffee.id === id) {
-          const updatedIngredients = updates.ingredients || coffee.ingredients;
-          const totalPrice = calculateTotalPrice(updatedIngredients);
-          return { ...coffee, ...updates, totalPrice };
-        }
-        return coffee;
-      })
-    );
+  const updateCoffee = async (id, updates) => {
+    try {
+      const updatedIngredients = updates.ingredients;
+      const totalPrice = calculateTotalPrice(updatedIngredients);
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...updates,
+          totalPrice
+        })
+      });
+      if (!response.ok) throw new Error('Failed to update coffee');
+      const updatedCoffee = await response.json();
+      setCoffees((prev) =>
+        prev.map((coffee) => (coffee.id === id ? updatedCoffee : coffee))
+      );
+    } catch (err) {
+      console.error('Error updating coffee:', err);
+      alert('შეცდომა: ყავის განახლება ვერ მოხერხდა');
+      throw err;
+    }
   };
 
-  const deleteCoffee = (id) => {
-    setCoffees((prev) => prev.filter((coffee) => coffee.id !== id));
+  const deleteCoffee = async (id) => {
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to delete coffee');
+      setCoffees((prev) => prev.filter((coffee) => coffee.id !== id));
+    } catch (err) {
+      console.error('Error deleting coffee:', err);
+      alert('შეცდომა: ყავის წაშლა ვერ მოხერხდა');
+      throw err;
+    }
   };
 
   const getCoffeeById = (id) => {
-    return coffees.find((coffee) => coffee.id === id);
+    return coffees.find((coffee) => coffee.id === parseInt(id));
   };
 
+  // ინგრედიენტების ცვლილებისას ყავის ფასების განახლება
   useEffect(() => {
-    if (coffees.length > 0) {
-      setCoffees((prev) =>
-        prev.map((coffee) => ({
-          ...coffee,
-          totalPrice: calculateTotalPrice(coffee.ingredients)
-        }))
-      );
-    }
+    const updateAllCoffeePrices = async () => {
+      if (coffees.length === 0 || ingredients.length === 0) return;
+
+      try {
+        const updates = coffees.map(async (coffee) => {
+          const newTotalPrice = calculateTotalPrice(coffee.ingredients);
+          if (newTotalPrice !== coffee.totalPrice) {
+            const response = await fetch(`${API_URL}/${coffee.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ totalPrice: newTotalPrice })
+            });
+            return response.json();
+          }
+          return coffee;
+        });
+
+        const updatedCoffees = await Promise.all(updates);
+        setCoffees(updatedCoffees);
+      } catch (err) {
+        console.error('Error updating coffee prices:', err);
+      }
+    };
+
+    updateAllCoffeePrices();
   }, [ingredients]);
 
   const value = {
     coffees,
+    loading,
+    error,
     addCoffee,
     updateCoffee,
     deleteCoffee,
     getCoffeeById,
-    calculateTotalPrice
+    calculateTotalPrice,
+    refresh: fetchCoffees
   };
 
   return (

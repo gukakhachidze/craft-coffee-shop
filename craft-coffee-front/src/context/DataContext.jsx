@@ -1,11 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const DataContext = createContext();
-
-const channel =
-  typeof BroadcastChannel !== 'undefined'
-    ? new BroadcastChannel('craft-coffee-sync')
-    : null;
+const API_BASE = 'http://localhost:3001';
 
 export const useData = () => {
   const context = useContext(DataContext);
@@ -16,67 +12,71 @@ export const useData = () => {
 };
 
 export const DataProvider = ({ children }) => {
-  const [ingredients, setIngredients] = useState(() => {
-    const stored = localStorage.getItem('ingredients');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const [ingredients, setIngredients] = useState([]);
+  const [coffees, setCoffees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [coffees, setCoffees] = useState(() => {
-    const stored = localStorage.getItem('coffees');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [ingredientsRes, coffeesRes] = await Promise.all([
+        fetch(`${API_BASE}/ingredients`),
+        fetch(`${API_BASE}/coffees`)
+      ]);
 
-  // სხვა ტაბებიდან ცვლილებების მოსმენა
-  useEffect(() => {
-    if (!channel) return;
-
-    const handleMessage = (event) => {
-      if (event.data.type === 'INGREDIENTS_UPDATE') {
-        setIngredients(event.data.data);
-        localStorage.setItem('ingredients', JSON.stringify(event.data.data));
-      } else if (event.data.type === 'COFFEES_UPDATE') {
-        setCoffees(event.data.data);
-        localStorage.setItem('coffees', JSON.stringify(event.data.data));
+      if (!ingredientsRes.ok || !coffeesRes.ok) {
+        throw new Error('Failed to fetch data from server');
       }
-    };
 
-    channel.addEventListener('message', handleMessage);
+      const [ingredientsData, coffeesData] = await Promise.all([
+        ingredientsRes.json(),
+        coffeesRes.json()
+      ]);
 
-    return () => {
-      channel.removeEventListener('message', handleMessage);
-    };
+      setIngredients(ingredientsData);
+      setCoffees(coffeesData);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // თავიდან ჩატვირთვა
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  // localStorage-დან პერიოდულად წაკითხვა (backup)
+  // ავტომატური განახლება ყოველ 3 წამში
   useEffect(() => {
-    const syncFromStorage = () => {
-      const storedIngredients = localStorage.getItem('ingredients');
-      const storedCoffees = localStorage.getItem('coffees');
+    const interval = setInterval(() => {
+      fetchData();
+    }, 3000);
 
-      if (storedIngredients) {
-        const parsed = JSON.parse(storedIngredients);
-        setIngredients((prev) =>
-          JSON.stringify(prev) !== storedIngredients ? parsed : prev
-        );
-      }
-      if (storedCoffees) {
-        const parsed = JSON.parse(storedCoffees);
-        setCoffees((prev) =>
-          JSON.stringify(prev) !== storedCoffees ? parsed : prev
-        );
-      }
-    };
-
-    const interval = setInterval(syncFromStorage, 2000);
     return () => clearInterval(interval);
   }, []);
 
   const getIngredientById = (id) => {
-    return ingredients.find((ingredient) => ingredient.id === parseInt(id));
+    // ID შეიძლება იყოს როგორც number ისე string
+    return ingredients.find(
+      (ingredient) =>
+        ingredient.id === id ||
+        ingredient.id === parseInt(id) ||
+        String(ingredient.id) === String(id)
+    );
   };
 
   const getCoffeeById = (id) => {
-    return coffees.find((coffee) => coffee.id === parseInt(id));
+    // ID შეიძლება იყოს როგორც number ისე string
+    return coffees.find(
+      (coffee) =>
+        coffee.id === id ||
+        coffee.id === parseInt(id) ||
+        String(coffee.id) === String(id)
+    );
   };
 
   const getCoffeeIngredients = (coffee) => {
@@ -88,9 +88,12 @@ export const DataProvider = ({ children }) => {
   const value = {
     ingredients,
     coffees,
+    loading,
+    error,
     getIngredientById,
     getCoffeeById,
-    getCoffeeIngredients
+    getCoffeeIngredients,
+    refresh: fetchData
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

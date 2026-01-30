@@ -7,7 +7,7 @@ const Nav = styled.nav`
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 9999;
   border-bottom: 3px solid #8b6f47;
 `;
 
