@@ -1,0 +1,55 @@
+{
+  "ingredients": [
+    {
+      "id": "3d4f",
+      "name": "რძე",
+      "price": 1.2,
+      "description": "ძროხის რძე",
+      "strength": "medium",
+      "flavor": "რძის"
+    },
+    {
+      "id": "10cb",
+      "name": "პელე",
+      "price": 0.5,
+      "description": "ნორმალური",
+      "strength": "medium",
+      "flavor": "სტაბილური"
+    },
+    {
+      "id": "0295",
+      "name": "ამერიკანო",
+      "price": 4.5,
+      "description": "ძლიერი ყავა",
+      "strength": "high",
+      "flavor": "მწარე"
+    }
+  ],
+  "coffees": [
+    {
+      "id": "62d1",
+      "title": "პელეს ყავა",
+      "ingredients": [
+        "10cb"
+      ],
+      "description": "კაია",
+      "image": "https://img.freepik.com/free-photo/top-view-hot-espresso-with-brown-coffee-seeds-brown-wooden-desk-coffee-cup-drink_140725-28168.jpg?semt=ais_hybrid&w=740&q=80",
+      "country": "brazil",
+      "caffeine": "medium",
+      "totalPrice": 2
+    },
+    {
+      "id": "7219",
+      "title": "მიქსი ამეირკანო",
+      "ingredients": [
+        "3d4f",
+        "0295"
+      ],
+      "description": "ძლიერი ყავა რძით",
+      "image": "https://img.freepik.com/free-photo/top-view-hot-espresso-with-brown-coffee-seeds-brown-wooden-desk-coffee-cup-drink_140725-28168.jpg?semt=ais_hybrid&w=740&q=80",
+      "country": "საქართველო",
+      "caffeine": "high",
+      "totalPrice": 2
+    }
+  ]
+}
